@@ -1,0 +1,15 @@
+services:
+  audio-cover-video:
+    build: .
+    image: audio-cover-video:latest
+    container_name: audio-cover-video
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data:/data          # 업로드/결과 임시 저장 (JOB_TTL_HOURS 후 자동 삭제)
+    environment:
+      MAX_UPLOAD_MB: "1024"   # 파일 하나당 업로드 상한
+      JOB_TTL_HOURS: "6"      # 결과 보관 시간
+      VIDEO_FPS: "24"         # 출력 프레임레이트 (낮추면 변환이 빨라짐)
+      MAX_CONCURRENT_JOBS: "1"

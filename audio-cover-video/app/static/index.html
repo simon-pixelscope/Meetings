@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Audio Cover Video</title>
+<style>
+  :root {
+    --bg: #f4f5f7; --card: #fff; --text: #111; --muted: #666; --line: #e3e5e8;
+    --accent: #0a84ff; --accent-text: #fff; --ok: #28a745; --err: #d93025;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #000; --card: #1c1c1e; --text: #f2f2f7; --muted: #9a9aa0; --line: #2c2c2e; }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Segoe UI", Roboto, sans-serif;
+    padding: env(safe-area-inset-top) 16px calc(16px + env(safe-area-inset-bottom));
+  }
+  main { max-width: 520px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 20px 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 16px; font-size: 14px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin-bottom: 14px; }
+  .card h2 { font-size: 15px; margin: 0 0 10px; color: var(--muted); font-weight: 600; }
+  input[type=file] { display: none; }
+  .pick {
+    display: flex; align-items: center; gap: 12px; padding: 12px; border: 1.5px dashed var(--line);
+    border-radius: 10px; cursor: pointer; min-height: 72px;
+  }
+  .pick:active { opacity: .7; }
+  .pick img { width: 56px; height: 56px; object-fit: cover; border-radius: 8px; background: var(--line); flex: none; }
+  .pick .icon { width: 56px; height: 56px; border-radius: 8px; background: var(--line); display: grid; place-items: center; font-size: 26px; flex: none; }
+  .pick .label { flex: 1; min-width: 0; }
+  .pick .name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pick .hint { color: var(--muted); font-size: 13px; }
+  button.primary {
+    width: 100%; padding: 14px; border: 0; border-radius: 12px; background: var(--accent); color: var(--accent-text);
+    font-size: 17px; font-weight: 600; cursor: pointer;
+  }
+  button.primary:disabled { opacity: .4; cursor: default; }
+  .secondary {
+    width: 100%; padding: 13px; border: 1.5px solid var(--accent); border-radius: 12px; background: transparent;
+    color: var(--accent); font-size: 16px; font-weight: 600; cursor: pointer; margin-top: 10px;
+  }
+  .progress { height: 8px; background: var(--line); border-radius: 4px; overflow: hidden; margin: 10px 0 6px; }
+  .progress > div { height: 100%; width: 0; background: var(--accent); transition: width .3s; }
+  .status { font-size: 14px; color: var(--muted); }
+  .status.err { color: var(--err); }
+  .status.ok { color: var(--ok); }
+  video { width: 100%; border-radius: 10px; background: #000; margin-bottom: 10px; }
+  .tip { font-size: 13px; color: var(--muted); margin-top: 10px; line-height: 1.6; }
+  .hidden { display: none !important; }
+  code { background: var(--line); padding: 1px 5px; border-radius: 4px; font-size: 13px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>이미지 + 오디오 → 동영상</h1>
+  <p class="sub">이미지 한 장을 커버로 오디오 길이만큼의 mp4를 만듭니다. 아이폰 사진 앱에 바로 저장할 수 있습니다.</p>
+
+  <section class="card">
+    <h2>1. 커버 이미지</h2>
+    <label class="pick" id="imagePick">
+      <input type="file" id="imageInput" accept="image/*">
+      <div class="icon" id="imageIcon">🖼️</div>
+      <img id="imagePreview" class="hidden" alt="">
+      <div class="label"><div class="name" id="imageName">이미지 선택</div><div class="hint">JPG, PNG, HEIC 등</div></div>
+    </label>
+  </section>
+
+  <section class="card">
+    <h2>2. 오디오</h2>
+    <label class="pick" id="audioPick">
+      <input type="file" id="audioInput" accept="audio/*,video/mp4,.m4a,.wav,.mp3,.mp4,.aac,.flac,.caf">
+      <div class="icon">🎵</div>
+      <div class="label"><div class="name" id="audioName">오디오 선택</div><div class="hint" id="audioHint">MP4, M4A, WAV, MP3 등 (MP4는 오디오 트랙만 사용)</div></div>
+    </label>
+  </section>
+
+  <button class="primary" id="convertBtn" disabled>동영상 만들기</button>
+
+  <section class="card hidden" id="progressCard">
+    <h2>진행 상황</h2>
+    <div class="progress"><div id="bar"></div></div>
+    <div class="status" id="status">대기 중…</div>
+  </section>
+
+  <section class="card hidden" id="resultCard">
+    <h2>완료</h2>
+    <video id="player" controls playsinline preload="metadata"></video>
+    <div class="status ok" id="resultInfo"></div>
+    <button class="primary" id="shareBtn" style="margin-top:10px">사진 앱에 저장</button>
+    <a id="downloadLink" class="secondary" style="display:block;text-align:center;text-decoration:none;box-sizing:border-box">다운로드 (mp4)</a>
+    <div class="tip" id="shareTip"></div>
+    <button class="secondary" id="resetBtn">새로 만들기</button>
+  </section>
+</main>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const imageInput = $('imageInput'), audioInput = $('audioInput');
+  const convertBtn = $('convertBtn'), shareBtn = $('shareBtn'), downloadLink = $('downloadLink');
+  let resultBlob = null, resultName = 'video.mp4', pollTimer = null;
+
+  const fmtDur = (s) => { s = Math.round(s); const m = Math.floor(s / 60); return `${m}:${String(s % 60).padStart(2, '0')}`; };
+  const fmtSize = (b) => b > 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.round(b / 1024) + ' KB';
+  const setStatus = (msg, cls = '') => { const el = $('status'); el.textContent = msg; el.className = 'status ' + cls; };
+  const setBar = (p) => { $('bar').style.width = Math.round(p * 100) + '%'; };
+  const updateReady = () => { convertBtn.disabled = !(imageInput.files[0] && audioInput.files[0]); };
+
+  imageInput.addEventListener('change', () => {
+    const f = imageInput.files[0]; if (!f) return;
+    $('imageName').textContent = f.name;
+    const url = URL.createObjectURL(f);
+    const img = $('imagePreview'); img.src = url; img.classList.remove('hidden'); $('imageIcon').classList.add('hidden');
+    updateReady();
+  });
+
+  audioInput.addEventListener('change', () => {
+    const f = audioInput.files[0]; if (!f) return;
+    $('audioName').textContent = f.name;
+    $('audioHint').textContent = fmtSize(f.size);
+    // 브라우저가 읽을 수 있는 포맷이면 길이를 미리 보여준다.
+    const a = document.createElement('audio'); a.preload = 'metadata';
+    a.onloadedmetadata = () => { if (isFinite(a.duration)) $('audioHint').textContent = `${fmtDur(a.duration)} · ${fmtSize(f.size)}`; URL.revokeObjectURL(a.src); };
+    a.src = URL.createObjectURL(f);
+    updateReady();
+  });
+
+  convertBtn.addEventListener('click', () => {
+    const fd = new FormData();
+    fd.append('image', imageInput.files[0]);
+    fd.append('audio', audioInput.files[0]);
+    convertBtn.disabled = true;
+    $('resultCard').classList.add('hidden');
+    $('progressCard').classList.remove('hidden');
+    setBar(0); setStatus('업로드 중… 0%');
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', 'api/jobs');
+    xhr.upload.onprogress = (e) => { if (e.lengthComputable) { const p = e.loaded / e.total; setBar(p * 0.3); setStatus(`업로드 중… ${Math.round(p * 100)}%`); } };
+    xhr.onerror = () => fail('업로드 실패 (네트워크 오류)');
+    xhr.onload = () => {
+      let body = {}; try { body = JSON.parse(xhr.responseText); } catch (_) {}
+      if (xhr.status !== 202) return fail(body.detail || `업로드 실패 (${xhr.status})`);
+      setStatus('변환 대기 중…'); poll(body.id);
+    };
+    xhr.send(fd);
+  });
+
+  function poll(id) {
+    pollTimer = setInterval(async () => {
+      try {
+        const r = await fetch(`api/jobs/${id}`); const j = await r.json();
+        if (!r.ok) return fail(j.detail || '상태 조회 실패');
+        if (j.status === 'processing') { setBar(0.3 + j.progress * 0.65); setStatus(`변환 중… ${Math.round(j.progress * 100)}%`); }
+        else if (j.status === 'done') { clearInterval(pollTimer); setBar(0.95); setStatus('결과 받는 중…'); await finish(id, j); }
+        else if (j.status === 'error') fail(j.message || '변환 실패');
+      } catch (e) { fail('상태 조회 실패: ' + e.message); }
+    }, 1000);
+  }
+
+  function fail(msg) { if (pollTimer) clearInterval(pollTimer); setStatus(msg, 'err'); convertBtn.disabled = false; }
+
+  async function finish(id, job) {
+    resultName = job.download_name || 'video.mp4';
+    const url = `api/jobs/${id}/download`;
+    downloadLink.href = url; downloadLink.download = resultName;
+    // 공유 시트는 파일 객체가 미리 준비돼 있어야 탭 한 번에 열린다.
+    const r = await fetch(url); resultBlob = await r.blob();
+    const file = new File([resultBlob], resultName, { type: 'video/mp4' });
+    const canShare = !!(navigator.canShare && navigator.canShare({ files: [file] }));
+    $('player').src = URL.createObjectURL(resultBlob);
+    $('resultInfo').textContent = `${job.width}×${job.height} · ${fmtDur(job.duration)} · ${fmtSize(resultBlob.size)}`;
+    if (canShare) {
+      shareBtn.classList.remove('hidden');
+      $('shareTip').innerHTML = '공유 시트에서 <b>비디오 저장</b>을 누르면 사진 앱에 저장됩니다.';
+      shareBtn.onclick = async () => { try { await navigator.share({ files: [file], title: resultName }); } catch (e) { if (e.name !== 'AbortError') alert('공유 실패: ' + e.message); } };
+    } else {
+      shareBtn.classList.add('hidden');
+      $('shareTip').innerHTML = window.isSecureContext
+        ? '이 브라우저는 파일 공유를 지원하지 않습니다. 다운로드 후 파일 앱에서 동영상을 열고 공유 → <b>비디오 저장</b>을 누르세요.'
+        : 'HTTPS가 아니라 바로 저장 버튼을 쓸 수 없습니다. <b>다운로드</b> 후 파일 앱에서 동영상을 열고 공유 → <b>비디오 저장</b>을 누르거나, <a href="' + url + '?inline=1" target="_blank">새 탭에서 열기</a> → Safari 공유 버튼 → <b>비디오 저장</b>을 누르세요.';
+    }
+    setBar(1); setStatus('완료', 'ok');
+    $('progressCard').classList.add('hidden');
+    $('resultCard').classList.remove('hidden');
+    convertBtn.disabled = false;
+  }
+
+  $('resetBtn').addEventListener('click', () => {
+    imageInput.value = ''; audioInput.value = ''; resultBlob = null;
+    $('imageName').textContent = '이미지 선택'; $('imagePreview').classList.add('hidden'); $('imageIcon').classList.remove('hidden');
+    $('audioName').textContent = '오디오 선택'; $('audioHint').textContent = 'MP4, M4A, WAV, MP3 등 (MP4는 오디오 트랙만 사용)';
+    $('resultCard').classList.add('hidden'); $('player').removeAttribute('src'); updateReady();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+})();
+</script>
+</body>
+</html>

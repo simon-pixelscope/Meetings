@@ -12,7 +12,6 @@ COPY app ./app
 ENV DATA_DIR=/data \
     MAX_UPLOAD_MB=1024 \
     JOB_TTL_HOURS=6 \
-    VIDEO_FPS=24 \
     MAX_CONCURRENT_JOBS=1
 VOLUME ["/data"]
 EXPOSE 8080

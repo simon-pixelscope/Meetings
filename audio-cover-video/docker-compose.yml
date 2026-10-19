@@ -11,5 +11,4 @@ services:
     environment:
       MAX_UPLOAD_MB: "1024"   # 파일 하나당 업로드 상한
       JOB_TTL_HOURS: "6"      # 결과 보관 시간
-      VIDEO_FPS: "24"         # 출력 프레임레이트 (낮추면 변환이 빨라짐)
       MAX_CONCURRENT_JOBS: "1"

@@ -29,7 +29,6 @@ async def lifespan(app: FastAPI):
     app.state.max_upload = _env_int("MAX_UPLOAD_MB", 1024) * 1024 * 1024
     app.state.jobs = JobManager(
         data_dir=Path(os.environ.get("DATA_DIR", "/data")) / "jobs",
-        fps=_env_int("VIDEO_FPS", 24),
         workers=_env_int("MAX_CONCURRENT_JOBS", 1),
         ttl_hours=_env_int("JOB_TTL_HOURS", 6),
     )

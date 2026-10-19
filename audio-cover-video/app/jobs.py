@@ -31,10 +31,9 @@ class Job:
 
 
 class JobManager:
-    def __init__(self, data_dir: Path, fps: int = 24, workers: int = 1, ttl_hours: float = 6):
+    def __init__(self, data_dir: Path, workers: int = 1, ttl_hours: float = 6):
         self.data_dir = data_dir
         self.data_dir.mkdir(parents=True, exist_ok=True)
-        self.fps = fps
         self.ttl = ttl_hours * 3600
         self._jobs: dict[str, Job] = {}
         self._lock = threading.Lock()
@@ -70,10 +69,10 @@ class JobManager:
         job.status = "processing"
 
         def on_progress(p: float) -> None:
-            job.progress = p
+            job.progress = max(job.progress, p)  # ffmpeg 보고 순서가 흔들려도 뒤로 가지 않게
 
         try:
-            meta = convert(image, audio, self.output_path(job.id), fps=self.fps, on_progress=on_progress)
+            meta = convert(image, audio, self.output_path(job.id), on_progress=on_progress)
             job.duration = meta["duration"]
             job.width = meta["width"]
             job.height = meta["height"]
